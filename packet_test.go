@@ -2,6 +2,7 @@ package hdhomerun
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"reflect"
 	"testing"
@@ -61,6 +62,34 @@ var packetTests = []struct {
 			0x04, 0x03, 0xaa, 0xbb, 0xcc,
 			0x5d, 0x52, 0x64, 0xf2,
 		},
+	},
+	{
+		name: "large tags",
+		p: &Packet{
+			Type: 3,
+			Tags: []Tag{
+				{
+					Type: 4,
+					Data: bytes.Repeat([]byte{0xff}, 255),
+				},
+			},
+		},
+		b: func() []byte {
+			bs := [][]byte{
+				{0x00, 0x03},
+				{0x01, 0x02},
+				{0x04, 0xff, 0x01},
+				bytes.Repeat([]byte{0xff}, 255),
+				{0xd2, 0xc9, 0x42, 0x2c},
+			}
+
+			var buf bytes.Buffer
+			for _, b := range bs {
+				buf.Write(b)
+			}
+
+			return buf.Bytes()
+		}(),
 	},
 	// TODO(mdlayher): tests with large tag values.
 }
@@ -138,6 +167,105 @@ func TestPacketUnmarshalBinaryError(t *testing.T) {
 
 			if want, got := tt.err, err; !reflect.DeepEqual(want, got) {
 				t.Fatalf("unexpected error:\n- want: %v\n-  got: %v", want, got)
+			}
+		})
+	}
+}
+
+func Test_readWriteTagLength(t *testing.T) {
+	tests := []struct {
+		length   int
+		b        []byte
+		consumed int
+	}{
+		{
+			length:   127,
+			b:        []byte{127, 0},
+			consumed: 1,
+		},
+		{
+			length:   128,
+			b:        []byte{0x80 | (128 & 0xff), 128 >> 7},
+			consumed: 2,
+		},
+		{
+			length:   129,
+			b:        []byte{0x80 | (129 & 0xff), 129 >> 7},
+			consumed: 2,
+		},
+		{
+			length:   512,
+			b:        []byte{0x80 | (512 & 0xff), 512 >> 7},
+			consumed: 2,
+		},
+		{
+			length:   555,
+			b:        []byte{0x80 | (555 & 0xff), 555 >> 7},
+			consumed: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%d", tt.length), func(t *testing.T) {
+			b := make([]byte, 2)
+
+			consumed, err := writeTagLength(tt.length, b)
+			if err != nil {
+				t.Fatalf("error writing tag length: %v", err)
+			}
+
+			if diff := cmp.Diff(tt.b, b); diff != "" {
+				t.Fatalf("unexpected output bytes (-want +got):\n%s", diff)
+			}
+
+			if diff := cmp.Diff(tt.consumed, consumed); diff != "" {
+				t.Fatalf("unexpected consumed bytes (-want +got):\n%s", diff)
+			}
+
+			length, consumed, err := readTagLength(b)
+			if err != nil {
+				t.Fatalf("error reading tag length: %v", err)
+			}
+
+			if diff := cmp.Diff(tt.length, length); diff != "" {
+				t.Fatalf("unexpected tag length (-want +got):\n%s", diff)
+			}
+
+			if diff := cmp.Diff(tt.consumed, consumed); diff != "" {
+				t.Fatalf("unexpected consumed bytes (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func Test_readWriteTagLengthBufferError(t *testing.T) {
+	tests := []struct {
+		n int
+	}{
+		{
+			n: 0,
+		},
+		{
+			n: 1,
+		},
+		{
+			n: 3,
+		},
+		{
+			n: 255,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%d", tt.n), func(t *testing.T) {
+			b := make([]byte, tt.n)
+
+			if _, err := writeTagLength(0, b); err != errTagLengthBuffer {
+				t.Fatalf("expected tag length buffer error, got: %v", err)
+			}
+
+			if _, _, err := readTagLength(b); err != errTagLengthBuffer {
+				t.Fatalf("expected tag length buffer error, got: %v", err)
 			}
 		})
 	}
