@@ -226,7 +226,7 @@ func (d *Discoverer) Discover(ctx context.Context) (*DiscoveredDevice, error) {
 
 func (d *Discoverer) discover(ctx context.Context) (*DiscoveredDevice, error) {
 	// Blocks until a message is received from a device.
-	msgC := make(chan struct{}, 0)
+	msgC := make(chan struct{})
 
 	// Ensure the cancelation goroutine exits cleanly.
 	var wg sync.WaitGroup
