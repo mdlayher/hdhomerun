@@ -289,7 +289,7 @@ func (d *Discoverer) discover(ctx context.Context) (*DiscoveredDevice, error) {
 		return nil, &retryableError{err: err}
 	}
 
-	device, err := newDiscoveredDevice(addr, p)
+	device, err := newDiscoveredDevice(addr.String(), p)
 	if err != nil {
 		return nil, &retryableError{err: err}
 	}
@@ -304,7 +304,7 @@ type DiscoveredDevice struct {
 	ID string
 
 	// Addr is the network address of this device.
-	Addr net.Addr
+	Addr string
 
 	// Type is the type of device discovered, such as a tuner or storage unit.
 	Type DeviceType
@@ -315,7 +315,7 @@ type DiscoveredDevice struct {
 
 // newDiscoveredDevice creates a DiscoveredDevice using the data from a
 // discover reply packet.
-func newDiscoveredDevice(addr net.Addr, p Packet) (*DiscoveredDevice, error) {
+func newDiscoveredDevice(addr string, p Packet) (*DiscoveredDevice, error) {
 	if p.Type != libhdhomerun.TypeDiscoverRpy {
 		return nil, fmt.Errorf("expected discover reply, but got %#x", p.Type)
 	}

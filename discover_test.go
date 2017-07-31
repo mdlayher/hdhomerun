@@ -99,11 +99,8 @@ func TestDiscoverOneDevice(t *testing.T) {
 	}
 
 	wantDevice := &DiscoveredDevice{
-		ID: "deadbeef",
-		Addr: &net.UDPAddr{
-			IP:   net.IPv4(127, 0, 0, 1),
-			Port: 65002,
-		},
+		ID:   "deadbeef",
+		Addr: "127.0.0.1:65002",
 		Type: DeviceTypeTuner,
 		URL: &url.URL{
 			Scheme: "http",
