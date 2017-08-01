@@ -106,6 +106,7 @@ func TestDiscoverOneDevice(t *testing.T) {
 			Scheme: "http",
 			Host:   "192.168.1.1:80",
 		},
+		Tuners: 3,
 	}
 
 	d, done := testListener(t, 1, func(req *Packet) (*Packet, error) {
@@ -127,6 +128,10 @@ func TestDiscoverOneDevice(t *testing.T) {
 				{
 					Type: libhdhomerun.TagBaseUrl,
 					Data: []byte("http://192.168.1.1:80"),
+				},
+				{
+					Type: libhdhomerun.TagTunerCount,
+					Data: []byte{0x03},
 				},
 			},
 		}, nil
@@ -327,6 +332,16 @@ func TestDiscoverBadDeviceReplies(t *testing.T) {
 			},
 		},
 		{
+			name: "bad tuner count",
+			modify: func(p *Packet) {
+				for i, t := range p.Tags {
+					if t.Type == libhdhomerun.TagTunerCount {
+						p.Tags[i].Data = []byte{}
+					}
+				}
+			},
+		},
+		{
 			name: "empty device type",
 			modify: func(p *Packet) {
 				for i, t := range p.Tags {
@@ -364,6 +379,10 @@ func TestDiscoverBadDeviceReplies(t *testing.T) {
 					{
 						Type: libhdhomerun.TagDeviceId,
 						Data: []byte{0xff, 0xff, 0xff, 0xff},
+					},
+					{
+						Type: libhdhomerun.TagTunerCount,
+						Data: []byte{0x03},
 					},
 				},
 			}

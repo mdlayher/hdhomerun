@@ -311,6 +311,9 @@ type DiscoveredDevice struct {
 
 	// URL, if available, is the URL for the device's web UI.
 	URL *url.URL
+
+	// Tuners is the number of TV tuners available to the device.
+	Tuners int
 }
 
 // newDiscoveredDevice creates a DiscoveredDevice using the data from a
@@ -361,6 +364,12 @@ func (d *DiscoveredDevice) parseTags(tags []Tag) error {
 			}
 
 			d.URL = u
+		case libhdhomerun.TagTunerCount:
+			if l := len(t.Data); l != 1 {
+				return fmt.Errorf("unexpected tuner count length in discover reply: %d", l)
+			}
+
+			d.Tuners = int(t.Data[0])
 		default:
 			// TODO(mdlayher): handle additional tags if needed
 		}
