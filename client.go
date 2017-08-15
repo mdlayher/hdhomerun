@@ -149,10 +149,24 @@ func (c *Client) Query(query string) ([]byte, error) {
 	}
 
 	if !bytes.Equal(name, queryb) {
-		return nil, fmt.Errorf("unexpected query in reply packet: %v", name)
+		return nil, fmt.Errorf("unexpected query in reply packet: %s", bytesStr(name))
 	}
 
 	return value, nil
+}
+
+// Tuner accesses methods of an HDHomeRun tuner with the specified index.
+func (c *Client) Tuner(n int) *Tuner {
+	return &Tuner{
+		Index: n,
+		c:     c,
+	}
+}
+
+// bytesStr returns a string containing the contents of b, with any null
+// terminator suffix removed.
+func bytesStr(b []byte) string {
+	return string(bytes.TrimSuffix(b, []byte{0x00}))
 }
 
 // strBytes returns a null-terminated byte slice containing the contents of s.
