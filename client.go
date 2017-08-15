@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -110,6 +111,9 @@ func (c *Client) Execute(req *Packet) (*Packet, error) {
 // Query performs a read-only query to retrieve information from an HDHomeRun
 // device. A list of possible query values can be found by sending "help"
 // as the query parameter.
+//
+// If the query tries to read a key that does not exist, IsNotExist can be
+// used to check this error.
 func (c *Client) Query(query string) ([]byte, error) {
 	queryb := strBytes(query)
 
@@ -141,6 +145,9 @@ func (c *Client) Query(query string) ([]byte, error) {
 			name = t.Data
 		case libhdhomerun.TagGetsetValue:
 			value = t.Data
+		case libhdhomerun.TagErrorMessage:
+			// If an error is present, handle it and return an Error.
+			return nil, newError(t.Data)
 		}
 	}
 
@@ -160,6 +167,51 @@ func (c *Client) Tuner(n int) *Tuner {
 	return &Tuner{
 		Index: n,
 		c:     c,
+	}
+}
+
+const (
+	// Possible error messages returned by an HDHomeRun device.
+	unknownGetSet = "unknown getset variable"
+
+	// errorPrefix is the prefix added and removed when converting an Error
+	// to and from its string form.
+	errorPrefix = "ERROR: "
+)
+
+// IsNotExist determines if an error occurred during Client.Query because
+// the specified key does not exist.
+func IsNotExist(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	herr, ok := err.(*Error)
+	if !ok {
+		return false
+	}
+
+	return herr.Message == unknownGetSet
+}
+
+var _ error = &Error{}
+
+// An Error is an error message returned by an HDHomeRun device.
+type Error struct {
+	Message string
+}
+
+// Error implements error.
+func (err *Error) Error() string {
+	return errorPrefix + err.Message
+}
+
+// newError creates an Error from an error message.
+func newError(b []byte) *Error {
+	s := strings.TrimPrefix(bytesStr(b), errorPrefix)
+
+	return &Error{
+		Message: s,
 	}
 }
 

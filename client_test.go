@@ -67,6 +67,31 @@ func TestClientQuery(t *testing.T) {
 	}
 }
 
+func TestClientQueryIsNotExist(t *testing.T) {
+	err := &Error{
+		Message: unknownGetSet,
+	}
+
+	reply := &Packet{
+		Type: libhdhomerun.TypeGetsetRpy,
+		Tags: []Tag{
+			{
+				Type: libhdhomerun.TagErrorMessage,
+				Data: strBytes(err.Error()),
+			},
+		},
+	}
+
+	c, done := testClient(t, func(req *Packet) (*Packet, error) {
+		return reply, nil
+	})
+	defer done()
+
+	if _, err := c.Query("/notexist"); !IsNotExist(err) {
+		t.Fatalf("failed to query: %v", err)
+	}
+}
+
 func TestClientSetTimeout(t *testing.T) {
 	c, done := testClient(t, noReply)
 	defer done()
