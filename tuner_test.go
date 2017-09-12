@@ -38,7 +38,7 @@ func TestClientTunerDebug(t *testing.T) {
 			dev: bps=1 resync=2 overflow=3
 			cc:  bps=4 resync=5 overflow=6
 			ts:  bps=7 te=8 crc=9
-			net: pps=10 err=11 stop=12
+			net: pps=10 err=11 stop=0
 			`,
 			debug: &TunerDebug{
 				Tuner: &TunerStatus{
@@ -64,7 +64,7 @@ func TestClientTunerDebug(t *testing.T) {
 				Network: &NetworkStatus{
 					PacketsPerSecond: 10,
 					Errors:           11,
-					Stop:             12,
+					Stop:             StopReasonNotStopped,
 				},
 			},
 			ok: true,

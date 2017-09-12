@@ -9,6 +9,18 @@ import (
 	"strings"
 )
 
+// A StopReason is a reason why a tuner's network stream has stopped.
+type StopReason int
+
+// Possible StopReason values.
+const (
+	StopReasonNotStopped          StopReason = 0
+	StopReasonIntentional         StopReason = 1
+	StopReasonICMPReject          StopReason = 2
+	StopReasonConnectionLoss      StopReason = 3
+	StopReasonHTTPConnectionClose StopReason = 4
+)
+
 // A Tuner is an HDHomeRun TV tuner.  The Index field specifies which tuner
 // will be queried.  Tuners should be constructed using the Tuner method of
 // the Client type.
@@ -100,7 +112,7 @@ type TransportStreamStatus struct {
 type NetworkStatus struct {
 	PacketsPerSecond int
 	Errors           int
-	Stop             int
+	Stop             StopReason
 }
 
 // parse parses a tuner debug status line.
@@ -271,7 +283,7 @@ func (td *TunerDebug) parseNetwork(kvs [][2]string) error {
 		case "err":
 			net.Errors = v
 		case "stop":
-			net.Stop = v
+			net.Stop = StopReason(v)
 		}
 	}
 
