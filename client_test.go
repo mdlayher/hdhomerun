@@ -1,6 +1,7 @@
 package hdhomerun
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -177,6 +178,78 @@ func TestClientQueryBadReplies(t *testing.T) {
 
 			if _, err := c.Query(query); err == nil {
 				t.Fatal("expected an error, but none occurred")
+			}
+		})
+	}
+}
+
+func TestClientForEachTuner(t *testing.T) {
+	tests := []struct {
+		name string
+		n    int
+		fn   func(t *testing.T, n int, tuner *Tuner) error
+	}{
+		{
+			name: "0 tuners",
+			fn: func(_ *testing.T, _ int, _ *Tuner) error {
+				return errors.New("should not be called")
+			},
+		},
+		{
+			name: "3 tuners",
+			n:    3,
+			fn: func(t *testing.T, n int, tuner *Tuner) error {
+				if diff := cmp.Diff(n, tuner.Index); diff != "" {
+					t.Fatalf("unexpected tuner index (-want +got):\n%s", diff)
+				}
+				return nil
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			notFound := &Packet{
+				Type: libhdhomerun.TypeGetsetRpy,
+				Tags: []Tag{{
+					Type: libhdhomerun.TagErrorMessage,
+					Data: []byte(errorPrefix + unknownGetSet),
+				}},
+			}
+
+			var n int
+			c, done := testClient(t, func(req *Packet) (*Packet, error) {
+				defer func() { n++ }()
+
+				// Reply with a debug message to say "tuner exists".
+				if n < tt.n {
+					return &Packet{
+						Type: libhdhomerun.TypeGetsetRpy,
+						Tags: []Tag{
+							{
+								Type: libhdhomerun.TagGetsetName,
+								Data: strBytes(fmt.Sprintf("/tuner%d/debug", n)),
+							},
+							{
+								Type: libhdhomerun.TagGetsetValue,
+								Data: []byte("tun: test=foo"),
+							},
+						},
+					}, nil
+				}
+
+				// Reply with not found when past number of tuners.
+				return notFound, nil
+			})
+			defer done()
+
+			err := c.ForEachTuner(func(tuner *Tuner) error {
+				// Subtract one so index matches tuner index since the tuner
+				// debug function is called first.
+				return tt.fn(t, n-1, tuner)
+			})
+			if err != nil {
+				t.Fatalf("failed to iterate tuners: %v", err)
 			}
 		})
 	}

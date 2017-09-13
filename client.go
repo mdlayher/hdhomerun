@@ -162,11 +162,43 @@ func (c *Client) Query(query string) ([]byte, error) {
 	return value, nil
 }
 
+// Model returns the model name of an HDHomeRun device.
+func (c *Client) Model() (string, error) {
+	b, err := c.Query("/sys/model")
+	if err != nil {
+		return "", err
+	}
+
+	return bytesStr(b), nil
+}
+
 // Tuner accesses methods of an HDHomeRun tuner with the specified index.
 func (c *Client) Tuner(n int) *Tuner {
 	return &Tuner{
 		Index: n,
 		c:     c,
+	}
+}
+
+// ForEachTuner invokes the input function for each tuner available to an
+// HDHomeRun device.  Iteration stops when no more tuners are available.
+func (c *Client) ForEachTuner(fn func(t *Tuner) error) error {
+	for i := 0; ; i++ {
+		t := c.Tuner(i)
+
+		// Ensure a tuner exists at this index.  If one does not, iteration
+		// will stop before invoking the user function.
+		if _, err := t.Debug(); err != nil {
+			if IsNotExist(err) {
+				return nil
+			}
+
+			return err
+		}
+
+		if err := fn(t); err != nil {
+			return err
+		}
 	}
 }
 
